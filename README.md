@@ -17,7 +17,7 @@ To create a new Sword project, simply run this one-liner:
 ```bash
 docker run --rm --pull=always -t -e HOST_PWD="$PWD" \
     -v "$PWD":/app -v /var/run/docker.sock:/var/run/docker.sock \
-    phpsword/installer myproject
+    ghcr.io/phpsword/installer myproject
 ```
 
 Replace `myproject` by the name of your project. Done!
