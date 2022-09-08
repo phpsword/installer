@@ -14,8 +14,6 @@ on:
             - '**/README.md'
             - '**/LICENSE'
     workflow_dispatch:
-        branches:
-            - master
     schedule:
         -   cron: '0 3 * * 1' # Once a week at 03:00 on Monday
 
@@ -77,6 +75,8 @@ jobs:
                     composer require --no-interaction phpsword/sword-bundle johnpbloch/wordpress wpackagist-plugin/akismet wpackagist-theme/twentytwentytwo
                     composer require --no-interaction --dev ergebnis/composer-normalize roave/security-advisories:dev-latest
                     composer normalize --no-interaction
+                    rm bin/console
+                    cp vendor/phpsword/sword-bundle/install/bin/console bin/console
 
             -   name: "Check file existence"
                 uses: andstor/file-existence-action@v1
