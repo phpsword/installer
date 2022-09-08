@@ -1,0 +1,184 @@
+name: Installer builder
+
+on:
+    push:
+        branches:
+            - master
+        paths-ignore:
+            - '**/README.md'
+            - '**/LICENSE'
+    pull_request:
+        branches:
+            - '**'
+        paths-ignore:
+            - '**/README.md'
+            - '**/LICENSE'
+    workflow_dispatch:
+        branches:
+            - master
+    schedule:
+        -   cron: '0 3 * * 1' # Once a week at 03:00 on Monday
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: phpsword/installer
+  LATEST_PHP_VERSION: '8.1'
+
+jobs:
+    build:
+        name: Build
+
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                php: [ '8.1' ]
+
+        steps:
+            -   uses: actions/checkout@v2
+
+            -   name: Setup PHP
+                id: setup-php
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    extensions: dom, curl, libxml, mbstring, zip, redis
+                    tools: composer:v2, symfony
+                    coverage: none
+
+            -   name: Install project
+                run: |
+                    rm LICENSE
+                    rm README.md
+                    git config --global user.email "no-reply@getsword.com"
+                    git config --global user.name "Sword"
+                    symfony new newproject --webapp
+                    cd newproject
+                    cp -Rp . ../
+                    cd ..
+                    rm -rf newproject
+                    rm composer.lock
+                    rm docker-compose*
+                    echo "APP_NAME=sword" >> .env
+                    echo "PROJECT_DIR=${PWD##*/}" >> .env
+                    echo "MAILER_DSN=smtp://mailer:25" >> .env
+                    composer config --no-interaction minimum-stability dev
+                    composer config --no-interaction prefer-stable true
+                    composer config --no-interaction repositories.0 '{"type": "composer", "url": "https://wpackagist.org", "only": ["wpackagist-plugin/*", "wpackagist-theme/*"]}'
+                    composer config --no-interaction allow-plugins.composer/installers true
+                    composer config --no-interaction allow-plugins.composer/package-versions-deprecated true
+                    composer config --no-interaction allow-plugins.johnpbloch/wordpress-core-installer true
+                    composer config --no-interaction allow-plugins.ergebnis/composer-normalize true
+                    composer config --no-interaction --json extra.installer-paths.wp/content/plugins/{\$name}/ '["type:wordpress-plugin"]'
+                    composer config --no-interaction --json extra.installer-paths.wp/content/themes/{\$name}/ '["type:wordpress-theme"]'
+                    composer config --no-interaction extra.symfony.allow-contrib true
+                    composer config --no-interaction extra.symfony.endpoint "https://raw.githubusercontent.com/symfony/recipes-contrib/flex/pull-1433/index.json"
+                    composer config --no-interaction extra.wordpress-install-dir "wp/core"
+                    composer require --no-interaction phpsword/sword-bundle johnpbloch/wordpress wpackagist-plugin/akismet wpackagist-theme/twentytwentytwo
+                    composer require --no-interaction --dev ergebnis/composer-normalize roave/security-advisories:dev-latest
+                    composer normalize --no-interaction
+
+            -   name: "Check file existence"
+                uses: andstor/file-existence-action@v1
+                with:
+                    files: "docker-compose.yml, docker/"
+                    allow_failure: true
+
+            -   name: Build Docker image
+                run: docker build --no-cache -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }} -f ./build/Dockerfile .
+
+            -   name: Save Docker image as artifact
+                run: docker save -o /tmp/installer-${{ matrix.php }}.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }}
+
+            -   name: Upload artifact
+                uses: actions/upload-artifact@v2
+                with:
+                    name: installer-${{ matrix.php }}
+                    path: /tmp/installer-${{ matrix.php }}.tar
+
+    test:
+        name: Test
+
+        needs: build
+
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                php: [ '8.1' ]
+
+        steps:
+            -   name: Download artifact
+                uses: actions/download-artifact@v2
+                with:
+                    name: installer-${{ matrix.php }}
+                    path: /tmp
+
+            -   name: Load Docker image
+                run: |
+                    docker load --input /tmp/installer-${{ matrix.php }}.tar
+                    docker image ls -a
+
+            -   name: Create a new project
+                run: |
+                    docker run --rm -t -e HOST_PWD="$PWD" \
+                        -v "$PWD":/app -v /var/run/docker.sock:/var/run/docker.sock \
+                        ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }} testproject -v
+                    sleep 20
+
+            -   name: Show containers logs
+                run: |
+                    cd testproject
+                    docker compose logs --tail 20 php
+                    docker compose logs --tail 20 nginx
+                    docker compose logs --tail 20 mysql
+                    docker compose logs --tail 20 traefik
+
+            -   name: Check that website is up and running
+                run: |
+                    wget --no-check-certificate -O- https://testproject.localhost/
+                    url=$(curl https://testproject.localhost -k -s -L -I -o /dev/null -w '%{url_effective}')
+                    echo $url
+                    [ "$url" = "https://testproject.localhost/wp-admin/install.php" ]
+
+
+    deploy:
+        name: Deploy
+
+        needs: [build, test]
+
+        runs-on: ubuntu-latest
+
+        if: github.ref == 'refs/heads/master'
+
+        strategy:
+            matrix:
+                php: [ '8.1' ]
+
+        steps:
+            -   name: Download artifact
+                uses: actions/download-artifact@v2
+                with:
+                    name: installer-${{ matrix.php }}
+                    path: /tmp
+
+            -   name: Load Docker image
+                run: |
+                    docker load --input /tmp/installer-${{ matrix.php }}.tar
+                    docker image ls -a
+
+            -   name: Log in to the Container registry
+                uses: docker/login-action@v2
+                with:
+                    registry: ${{ env.REGISTRY }}
+                    username: ${{ github.actor }}
+                    password: ${{ secrets.GITHUB_TOKEN }}
+
+            -   name: Push Docker image
+                run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }}
+
+            -   name: Push latest Docker tag
+                if: matrix.php == ${{ env.LATEST_PHP_VERSION }}
+                run: |
+                    docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+                    docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

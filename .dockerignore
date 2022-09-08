@@ -1,0 +1,8 @@
+.idea
+.git
+.github
+.dockerignore
+sword-logo-sm.png
+
+/build/*
+!/build/docker-entrypoint.sh
