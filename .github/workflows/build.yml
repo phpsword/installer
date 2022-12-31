@@ -70,7 +70,6 @@ jobs:
                     composer config --no-interaction --json extra.installer-paths.wp/content/plugins/{\$name}/ '["type:wordpress-plugin"]'
                     composer config --no-interaction --json extra.installer-paths.wp/content/themes/{\$name}/ '["type:wordpress-theme"]'
                     composer config --no-interaction extra.symfony.allow-contrib true
-                    composer config --no-interaction extra.symfony.endpoint "https://raw.githubusercontent.com/symfony/recipes-contrib/flex/pull-1471/index.json"
                     composer config --no-interaction extra.wordpress-install-dir "wp/core"
                     composer require --no-interaction phpsword/sword-bundle johnpbloch/wordpress wpackagist-plugin/akismet wpackagist-theme/twentytwentytwo
                     composer require --no-interaction --dev ergebnis/composer-normalize roave/security-advisories:dev-latest
