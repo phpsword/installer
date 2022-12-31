@@ -33,7 +33,7 @@ jobs:
                 php: [ '8.1' ]
 
         steps:
-            -   uses: actions/checkout@v2
+            -   uses: actions/checkout@v3
 
             -   name: Setup PHP
                 id: setup-php
@@ -81,7 +81,7 @@ jobs:
                     cp vendor/phpsword/sword-bundle/install/bin/console bin/console
 
             -   name: "Check file existence"
-                uses: andstor/file-existence-action@v1
+                uses: andstor/file-existence-action@v2
                 with:
                     files: "docker-compose.yml, docker/"
                     allow_failure: true
@@ -93,7 +93,7 @@ jobs:
                 run: docker save -o /tmp/installer-${{ matrix.php }}.tar ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }}
 
             -   name: Upload artifact
-                uses: actions/upload-artifact@v2
+                uses: actions/upload-artifact@v3
                 with:
                     name: installer-${{ matrix.php }}
                     path: /tmp/installer-${{ matrix.php }}.tar
@@ -111,7 +111,7 @@ jobs:
 
         steps:
             -   name: Download artifact
-                uses: actions/download-artifact@v2
+                uses: actions/download-artifact@v3
                 with:
                     name: installer-${{ matrix.php }}
                     path: /tmp
@@ -159,7 +159,7 @@ jobs:
 
         steps:
             -   name: Download artifact
-                uses: actions/download-artifact@v2
+                uses: actions/download-artifact@v3
                 with:
                     name: installer-${{ matrix.php }}
                     path: /tmp
