@@ -20,7 +20,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: phpsword/installer
-  LATEST_PHP_VERSION: '8.2'
+  LATEST_PHP_VERSION: '8.1'
 
 jobs:
     build:
@@ -184,7 +184,7 @@ jobs:
                 run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }}
 
             -   name: Push latest Docker tag
-                if: matrix.php == ${{ env.LATEST_PHP_VERSION }}
+                if: ${{ matrix.php == env.LATEST_PHP_VERSION }}
                 run: |
                     docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:php-${{ matrix.php }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
                     docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

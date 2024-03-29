@@ -22,6 +22,15 @@ docker run --rm --pull=always -t -e HOST_PWD="$PWD" \
 
 Replace `myproject` by the name of your project. Done!
 
+
+## Available tags
+
+Latest tag is set to the [latest officially supported](https://make.wordpress.org/core/handbook/references/php-compatibility-and-wordpress-versions/) PHP version by WordPress. Newer beta supported PHP versions are also available.
+
+[![](https://ghcr-badge.egpl.dev/phpsword/installer/latest_tag?trim=major&label=latest)](https://github.com/phpsword/installer/pkgs/container/installer)
+
+[![](https://ghcr-badge.egpl.dev/phpsword/installer/tags?trim=major)](https://github.com/phpsword/installer/pkgs/container/installer)
+
 # Contributions
 Feel free to submit issues and pull requests.
 
